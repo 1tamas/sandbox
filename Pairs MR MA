@@ -1,0 +1,48 @@
+def initialize(context):
+    
+    context.pfe = sid(5923)
+    context.mrk = sid(5029)    
+    context.portfolio.positions_value
+    set_commission(commission.PerTrade(cost=7.00))
+
+def handle_data(context, data):
+    
+    posvalue = context.portfolio.positions_value
+    
+    cash = context.portfolio.cash
+    record(cash = context.portfolio.cash)           
+    
+    pfeprice = data[context.pfe].price
+    mrkprice = data[context.mrk].price
+    
+    pfemultiple = mrkprice / pfeprice
+    mrkmultiple = pfeprice / mrkprice
+    
+    adjpfemavg = data[context.pfe].mavg(30) * pfemultiple
+    adjmrkmavg = data[context.mrk].mavg(30) * mrkmultiple 
+    pfemavg = data[context.pfe].mavg(30) 
+    mrkmavg = data[context.mrk].mavg(30)        
+    
+    mrklinreg = (adjpfemavg + mrkmavg) / 2
+    pfelinreg = (pfemavg + adjmrkmavg) / 2
+    
+    pfeshares = ((context.portfolio.starting_cash * .25) / pfeprice) 
+    mrkshares = ((context.portfolio.starting_cash * .25) / mrkprice)
+
+           
+    if pfeprice > pfelinreg * 1.1 and posvalue > context.portfolio.starting_cash * .25:
+         order(context.pfe,-pfeshares)
+         log.info("Selling %s" % (context.pfe))
+            
+    elif pfeprice < pfelinreg * .9 and pfeprice * pfeshares < cash:
+         order(context.pfe,+pfeshares)
+         log.info("Buying %s" % (context.pfe))
+     
+    elif mrkprice > mrklinreg * 1.1 and posvalue > context.portfolio.starting_cash * .25: 
+         order(context.mrk,-mrkshares)
+         log.info("Selling %s" % (context.mrk))     
+     
+    elif mrkprice < mrklinreg * .9 and mrkprice * mrkshares < cash:
+         order(context.mrk,+mrkshares)
+         log.info("Buying %s" % (context.mrk))   
+                        
