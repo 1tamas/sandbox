@@ -1,0 +1,26 @@
+#http://allthingsr.blogspot.com/2012/10/pull-yahoo-finance-key-statistics.html
+
+require(quantmod)
+require("plyr")
+what_metrics <- yahooQF(c("Price/Sales", 
+                          "P/E Ratio",
+                          "Price/EPS Estimate Next Year",
+                          "PEG Ratio",
+                          "Dividend Yield", 
+                          "Enterprise Value/EBITDA",
+                          "Market Capitalization"))
+
+tickers <- c("AAPL", "FB", "GOOG", "HPQ", "IBM", "MSFT", "ORCL", "SAP",
+)
+# Not all the metrics are returned by Yahoo.
+metrics <- getQuote(paste(tickers, sep="", collapse=";"), what=what_metrics)
+
+#Add tickers as the first column and remove the first column which had date stamps
+metrics <- data.frame(Symbol=tickers, metrics[,2:length(metrics)]) 
+
+#Change colnames
+colnames(metrics) <- c("Symbol", "Revenue Multiple", "Earnings Multiple", 
+                       "Earnings Multiple (Forward)", "Price-to-Earnings-Growth", "Div Yield", "EVperEBITDA","Market Cap")
+
+#Persist this to the csv file
+write.csv(metrics, "FinancialMetrics.csv", row.names=FALSE)
