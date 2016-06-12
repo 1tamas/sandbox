@@ -1,0 +1,55 @@
+# build 5min db
+# ="E:\stooqnew"&RIGHT(LEFT(A2,LEN(A2)-3),LEN(A2)-11)&"txt"
+DFlist1<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nasdaq stocks\\1\\"))
+colnames(DFlist1)[1]<-"path"
+DFlist1$path<-paste("E:\\stooq\\5 min\\us\\nasdaq stocks\\1\\",DFlist1$path,sep="")
+DFlist2<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nasdaq stocks\\2\\"))
+DFlist3<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nyse stocks\\1\\"))
+DFlist4<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nyse stocks\\2\\"))
+DFlist5<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nasdaq etfs\\"))
+DFlist6<-as.data.frame(list.files("E:\\stooq\\5 min\\us\\nyse etfs\\"))
+#
+DFlist2$path<-paste("E:\\stooq\\5 min\\us\\nasdaq stocks\\2\\",DFlist2$path,sep="")
+DFlist3$path<-paste("E:\\stooq\\5 min\\us\\nyse stocks\\1\\",DFlist3$path,sep="")
+DFlist4$path<-paste("E:\\stooq\\5 min\\us\\nyse stocks\\2\\",DFlist4$path,sep="")
+DFlist5$path<-paste("E:\\stooq\\5 min\\us\\nasdaq etfs\\",DFlist5$path,sep="")
+DFlist6$path<-paste("E:\\stooq\\5 min\\us\\nyse etfs\\",DFlist6$path,sep="")
+#
+DFlist<-rbind(DFlist1,DFlist2,DFlist3,DFlist4,DFlist5,DFlist6)
+write.table(DFlist, file="E:\\stooq\\STOOQ.csv",sep=",",col.names=T,row.names=F)
+
+DFlist<-list.files("E:\\stooq\\5 min\\us\\nasdaq stocks\\1\\")
+count<-length(DFlist)
+for (i in 1847:count) {
+    if (file.exists(DFlist[i,1])==FALSE) {
+        next
+    } 
+    file<-DFlist[i,1]
+    DF<-read.table(file,sep=",",header=T)
+    file<-DFlist[i,2]
+    write.table(DF, file=file,sep=",",col.names=T,row.names=F)
+}
+######################################################################
+# update with new data
+#######################################
+stooq<-read.csv("E:\\STOOQ\\STOOQ.csv",stringsAsFactors=FALSE)
+count<-(nrow(stooq))
+stooq$check<-file.exists(stooq$pathnew)
+for (i in 1:count) {
+    if (stooq[i,3]=='FALSE') {
+        next
+    } 
+    DF<-read.csv(stooq[i,1],stringsAsFactors=FALSE)
+    # skip empty txt files
+    if (file.info(stooq[i,2])$size==0) {
+        next
+    } 
+    DF2del<-read.table(stooq[i,2], sep=",", header=T)
+    DF<-rbind(DF,DF2del)
+    DF<- DF[!duplicated(DF),]
+    write.table(DF, file = stooq[i,1],col.names = T,row.names = F,sep = ",")
+    file.remove(stooq[i,2])
+}
+# hourly =LEFT(A2,9)&"hourly"&RIGHT(A2,LEN(A2)-14)
+#        =LEFT(A2,12)&"hourly"&RIGHT(A2,LEN(A2)-17)
+
