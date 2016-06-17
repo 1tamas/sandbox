@@ -1,0 +1,129 @@
+load('Kaggle_Clust1.Rdata')
+write.table(train,file="bef\\train_S.csv",row.names=F,sep=",")
+#### raw data to testS
+
+
+train
+#### testS
+# Create Ret1,PRet1, ERet1, PRet2, ERet2, (Ret_Minus)
+#summary(rlm(Ret_Minus ~ stdmin120+Feature_4+Feature_5 +Feature_9+Feature_11 +Feature_13 + Feature_14 +Feature_15+ Feature_19+Feature_21, train,psi = psi.bisquare))
+#summary(rlm(SD0 ~ Feature_4+Feature_5 +Feature_9+Feature_11 +Feature_13 + Feature_14 +Feature_15+ Feature_19+Feature_21, train,psi = psi.bisquare))
+#4,13,14 (risk off), std sign plus ...Feature_4 to try####################################
+train$Ret1<-(train$Ret_MinusOne+1)*(train$summin120+1)-1
+train$ABSRet1<-abs(train$Ret1)
+# Ret2
+model<-(rlm(Ret_Minus ~ stdmin120+Feature_4+Feature_5 +Feature_9+Feature_11 +Feature_13 + Feature_14 +Feature_15+ Feature_19+Feature_21, train,psi = psi.bisquare))
+DFpred<-as.data.frame(predict(model, train))
+colnames(DFpred)[1]<-'pred'
+train$PRet2<-DFpred$pred
+train$ERet2<-train$Ret_Minus-train$PRet2
+# Ret1
+model<-(rlm(Ret1 ~ stdmin120+Feature_4+Feature_5 +Feature_9+Feature_11 +Feature_13 + Feature_14 +Feature_15+ Feature_19+Feature_21, train,psi = psi.bisquare))
+DFpred<-as.data.frame(predict(model, train))
+colnames(DFpred)[1]<-'pred'
+train$PRet1<-DFpred$pred
+train$ERet1<-train$Ret1-train$PRet1
+# Risk  ############################################(try ABSRet1)
+model<-(rlm(stdmin120 ~ ABSRet1+ Feature_4+Feature_5 +Feature_9+Feature_11 +Feature_13 + Feature_14 +Feature_15+ Feature_19+Feature_21, train,psi = psi.bisquare))
+DFpred<-as.data.frame(predict(model, train))
+colnames(DFpred)[1]<-'pred'
+train$PRisk<-DFpred$pred
+train$ERisk<-train$stdmin120-train$PRisk
+# Crosses
+train$Cross1<-train$ERet1*train$ERisk
+train$Cross2<-train$ERet2*train$ERisk
+# train$Cross11[train$ERet1<0]<-0
+train$Cross11<-train$ERet1*train$SD0
+########################################################
+# model test
+#####################################################
+DF<-subset(train,Ret_Minus>0)
+#train$Ret123<-(train$summin120+1)*(0.75*train$Ret_MinusOne+1)*(0.25*train$Ret_MinusTwo+1)-1
+#
+trainset <-DF[1:(0.7*nrow(DF)),c('med60','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','Estdmin120','ERet_Minus','ESD0','Ret1','Ret123','stdmin120','summin120','Feature_13','Feature_14','Feature_18','Feature_19','med120','skewmin120')]
+testset <-DF[(0.7*nrow(DF)):nrow(DF),c('med60','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','Estdmin120','ERet_Minus','ESD0','Ret1','Ret123','stdmin120','summin120','Feature_13','Feature_14','Feature_18','Feature_19','med120','skewmin120')]
+#
+trainset <-DF[1:(0.7*nrow(DF)),c('Ret_PlusOne','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','Estdmin120','ERet_Minus','ESD0','Ret1','Ret123','stdmin120','summin120')]
+testset <-DF[(0.7*nrow(DF)):nrow(DF),c('Ret_PlusOne','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','Estdmin120','ERet_Minus','ESD0','Ret1','Ret123','stdmin120','summin120')]
+#
+trainset <-DF[1:(0.7*nrow(DF)),c('Ret_PlusTwo','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','ESD0')]
+testset <-DF[(0.7*nrow(DF)):nrow(DF),c('Ret_PlusTwo','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1','Feature_4','Cross1','Cross2','Ret_Minus','SD0','ESD0')]
+#
+model<-(rlm(Ret_PlusOne ~ ERet2+ERet1, trainset,psi = psi.bisquare)) ####..c('Ret_Plus','PRisk','ERisk','PRet2','ERet2','PRet1','ERet1')
+                                                ##PRisk+ERisk+PRet2+ERet2+PRet1+ERet1
+DFpred<-as.data.frame(predict(model, testset[,-1]))
+colnames(DFpred)[1]<-'pred'
+DFpred$zero<-0
+sum(abs(DFpred$zero - testset[,1]))/sum(abs(DFpred$pred - testset[,1]))
+#
+DFpred<-as.data.frame(predict(model, trainset[,-1]))
+colnames(DFpred)[1]<-'pred'
+DFpred$zero<-0
+sum(abs(DFpred$zero - trainset[,1]))/sum(abs(DFpred$pred - trainset[,1]))
+# 1.001106  1.001097 ##############################################################################
+#  Ret_Plus ~ ERet1+ERet2+Feature_4+Cross1 #  
+     -0.001  0.0038  ERet1 -0.0362 ERet2 -119.0269  Cross1  0.0004 Feature_4
+     -0.0005-0.0392*ERet2+0.0164*ERet1-0.9309*PRisk+0.1133*ERisk+0.0005*Feature_4
+     #-0.0005-0.0392*ERet2+0.0164*ERet1-0.9309*PRisk+0.1133*ERisk+0.0004*Feature_4
+# Ret_PlusOne ~ PRisk+ERisk+ERet1+Feature_4 #  -0.0014+1.4329*PRisk+1.2486*ERisk-0.0149*ERet1+0.0005*Feature_4
+# Ret_PlusTwo ~ PRisk+ERisk+ERet2+ERet1     #  -0.0008+0.8709*PRisk+1.4964*ERisk-0.0107*ERet2+0.0095*ERet1
+#One 1.000765 1.001035   no PRisk  Ret_PlusOne ~ -0.0004  -6.9387 Cross1 0.9686 ERisk -0.0208 ERet1 0.0004 Feature_4
+# fel    -0.000488742median(DF$Ret_PlusOne)      -0.0005 -3.2244  Cross1 0.3777 ERisk -0.0081 ERet1 0.0004 Feature_4
+# le     -6.2e-05                                -0.0009 -12.7294 Cross1 1.3866 ERisk -0.0437 ERet1 0.0004 Feature_4
+#Two 1.000675 1.000274             Ret_PlusTwo ~ -0.0008  -3.4580 Cross2 0.9001 PRisk 1.4560  ERisk -0.0102 ERet2 0.0068 ERet1
+# -0.00025med     fel                           -0.0005                               1.8495 ERisk  +0.0047 Ret_Minus
+# le                                            -0.0004                               0.9774 ERisk -0.0182 Ret_Minus 0.0124 ERet1
+# 
+
+
+#########################################################################################
+##  Generate Submit
+########
+test2$subD1[test2$Ret_Minus>0]<-(-0.0013)+1.0936*test2$stdmin120 -4.7840 test2$Cross2 -0.0064 test2$Ret_Minus  test2$ERet1 test2$Feature_14
+# Rmin
+test2$subMin<-(-0.0000001600298)+0.0001910036*test2$stdmin120+0.00001795959*test2$summin120-test2$0.0000003188*test2$skewmin120
+# D2 
+test2$subD2<-(-0.00028) - 0.011*test2$ERet_Minus -0.0001 *test2$skewmin120   #kockazatos 0.011?? es+ 0.2*test2$PRisk)
+####### median -0.00028
+#D1
+####### median
+#test2$subD1<-(-0.00046)- 5*test2$Cross1 +0.4*test2$ERisk() -0.02723* test2$ERet1+ 0.00005*test2$Feature_4  #PRisk?? 1ig  ERet only -0.0186
+test2$subD1<- (-0.0008)+0.39*test2$SD0 -0.02*test2$ERet1 -0.002*test2$ERet2 -40*test2$Cross2  #(0.0004Feature_4)
+# JOOOOOO
+test2$subD1fel<-(-0.0004)+0.25*test2$SD0 -0.025*test2$ERet1 -77 *test2$Cross1 -0.0001*test2$skewmin120          #kock 0.7-0.05-120 ++skew up
+                            #kock -0.017*test2$ERet_Minus
+test2$subD1<- test2$subD1 + (-0.00026-median(test2$subD1))
+$Day1<-test2$subD1
+
+# svm
+#
+trainset <-DF[1:(0.7*nrow(DF)),c('Ret_PlusTwo','SD0','ERet_Minus','skewmin120')]
+testset <-DF[(0.7*nrow(DF)):nrow(DF),c('Ret_PlusTwo','SD0','ERet_Minus','skewmin120')]
+# D2
+model<-(svm(Ret_PlusTwo ~ SD0+ERet_Minus+skewmin120, trainset,cost=0.01))
+DF02<-test2[,c('SD0','ERet_Minus','skewmin120')]
+DFpred<-as.data.frame(predict(model, DF02))
+.
+test2$subD2SVM01<-DFpred$pred
+#
+model<-(svm(Ret_PlusOne ~ SD0+ERet2+ERet1, train,cost=0.01))
+DF00<-test2[,c('SD0','ERet1','ERet2')]
+DFpred<-as.data.frame(predict(model, DF00))
+colnames(DFpred)[1]<-'pred'
+test2$subD1SVM<-DFpred$pred
+
+model<-(svm(Ret_PlusOne ~ SD0+ERet2+ERet1, trainset,cost=0.02))
+DFpred<-as.data.frame(predict(model, testset[,-1]))
+colnames(DFpred)[1]<-'pred'
+DFpred$zero<-0
+sum(abs(DFpred$zero - testset[,1]))/sum(abs(DFpred$pred - testset[,1]))
+DFpred<-as.data.frame(predict(model, trainset[,-1]))
+colnames(DFpred)[1]<-'pred'
+DFpred$zero<-0
+sum(abs(DFpred$zero - trainset[,1]))/sum(abs(DFpred$pred - trainset[,1]))
+#
+model<-(svm(Ret_PlusOne ~ SD0+ERet2+ERet1, train,cost=0.02))
+DFpred<-as.data.frame(predict(model, D00))
+colnames(DFpred)[1]<-'pred'
+DFpred$zero<-0
+sum(abs(DFpred$zero - train$Ret_PlusOne))/sum(abs(DFpred$pred - train$Ret_PlusOne))
