@@ -1,0 +1,17 @@
+#https://github.com/bcoffe/CommandLineWeatherR
+#http://homepage.stat.uiowa.edu/~luke/classes/248/examples/week4-examples.R
+#http://stackoverflow.com/questions/3572607/sendmailr-part2-sending-files-as-mail-attachments
+#http://stackoverflow.com/questions/5864400/sending-an-email-from-r-using-the-sendmailr-package
+#http://api.openweathermap.org/data/2.5/forecast?id=2655459,gb&mode=xml
+require("XML")
+setwd("D:\\rdata\\")
+url <- 'http://api.openweathermap.org/data/2.5/forecast?id=2653822,gb&mode=xml'
+doc <- xmlParse(url)
+DF <- data.frame(txt=rep("", 36),num=rep(NA, 36),num=rep(NA, 36),stringsAsFactors=FALSE)
+for(i in 1:36)
+{
+DF[i, ] <-c(as.character(getNodeSet(doc, "//time/@from")[[i]]),as.numeric(getNodeSet(doc, "//windSpeed/@mps")[[i]]),as.numeric(getNodeSet(doc, "//temperature/@value")[[i]]))
+}
+name<-as.character(format(Sys.Date(), format="%B %d %Y"))
+name<-paste (name,".csv", sep = "")
+write.csv(DF, name, row.names=FALSE)
