@@ -83,12 +83,32 @@ for (i in 1:nrow(users)) {
 train_store$TARGET<-apply(train_store[,3:4],1,max,na.rm=TRUE)
 # convert Target to binary 
 train_store$TARGET[train_store$TARGET>0]<-1
+train_store[,3:5]<-list(NULL)
 # create derived features
 train_store$Hcross<-train_store$HDIST*train_store$HDISTrank
 train_store$Pcross<-train_store$PDIST*train_store$PDISTrank
 ###############
 # Add user features
 ###############
+# Swap cathegorical features
+users <- transform(users, Age1 = ifelse(AGE_CAT =='a', 1, 0))
+users <- transform(users, Age2 = ifelse(AGE_CAT =='b', 1, 0))
+users <- transform(users, Age3 = ifelse(AGE_CAT =='c', 1, 0))
+users$AGE_CAT<-NULL
+users <- transform(users, CAP = ifelse(LOC_CAT =='a', 1, 0))
+users <- transform(users, CIT = ifelse(LOC_CAT =='b', 1, 0))
+users <- transform(users, VIL = ifelse(LOC_CAT =='c', 1, 0))
+users$LOC_CAT<-NULL
+users <- transform(users, INC = ifelse(INC_CAT =='d', 0, ifelse(INC_CAT =='a', 1, ifelse(INC_CAT =='b', 2, 3))))
+users <- transform(users, INC0 = ifelse(INC_CAT =='d', 1, 0))
+users <- transform(users, INC1 = ifelse(INC_CAT =='a', 1, 0))
+users <- transform(users, INC2 = ifelse(INC_CAT =='b', 1, 0))
+users <- transform(users, INC3 = ifelse(INC_CAT =='c', 1, 0))
+users$INC_CAT<-NULL
+users$WH<-apply(users[,18:29], 1, max)
+users$Have<-users$C201401
+users[,5:29]<-list(NULL)
+train_store<-merge(x=train_store,y=users,by='USER_ID',all.x = TRUE)
 
 ###############
 # Write store file 
@@ -147,6 +167,30 @@ for (i in 1:nrow(users)) {
 # create derived features
 test_store$Hcross<-test_store$HDIST*test_store$HDISTrank
 test_store$Pcross<-test_store$PDIST*test_store$PDISTrank
+
+###############
+# Add user features
+###############
+users <- read_csv("users_2015.csv")
+# Swap cathegorical features
+users <- transform(users, Age1 = ifelse(AGE_CAT =='a', 1, 0))
+users <- transform(users, Age2 = ifelse(AGE_CAT =='b', 1, 0))
+users <- transform(users, Age3 = ifelse(AGE_CAT =='c', 1, 0))
+users$AGE_CAT<-NULL
+users <- transform(users, CAP = ifelse(LOC_CAT =='a', 1, 0))
+users <- transform(users, CIT = ifelse(LOC_CAT =='b', 1, 0))
+users <- transform(users, VIL = ifelse(LOC_CAT =='c', 1, 0))
+users$LOC_CAT<-NULL
+users <- transform(users, INC = ifelse(INC_CAT =='d', 0, ifelse(INC_CAT =='a', 1, ifelse(INC_CAT =='b', 2, 3))))
+users <- transform(users, INC0 = ifelse(INC_CAT =='d', 1, 0))
+users <- transform(users, INC1 = ifelse(INC_CAT =='a', 1, 0))
+users <- transform(users, INC2 = ifelse(INC_CAT =='b', 1, 0))
+users <- transform(users, INC3 = ifelse(INC_CAT =='c', 1, 0))
+users$INC_CAT<-NULL
+users$WH<-apply(users[,11:16], 1, max)
+users$Have<-users$C201501
+users[,5:16]<-list(NULL)
+test_store<-merge(x=test_store,y=users,by='USER_ID',all.x = TRUE)
 
 ###############
 # Write store file
