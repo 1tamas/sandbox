@@ -109,7 +109,9 @@ users$WH<-apply(users[,18:29], 1, max)
 users$Have<-users$C201401
 users[,5:29]<-list(NULL)
 train_store<-merge(x=train_store,y=users,by='USER_ID',all.x = TRUE)
-
+###############
+# Add location ID
+train_store$LOC_ID<-1000*round(train_store$LOC_GEO_X/1000,0)+round(train_store$LOC_GEO_Y/1000,0)
 ###############
 # Write store file 
 # USER_ID POI_ID TARGET PDIST PDISTrank HDIST HDISTrank
@@ -193,6 +195,12 @@ users[,5:16]<-list(NULL)
 test_store<-merge(x=test_store,y=users,by='USER_ID',all.x = TRUE)
 
 ###############
-# Write store file
+# Add location ID
+test_store$LOC_ID<-1000*round(test_store$LOC_GEO_X/1000,0)+round(test_store$LOC_GEO_Y/1000,0)
+
+###############
+# Write store file ?????????column order
+# "USER_ID","POI_ID","PDIST","PDISTrank","HDIST","HDISTrank","Hcross","Pcross",
+# "GEN","LOC_GEO_X","LOC_GEO_Y","Age1","Age2","Age3","CAP","CIT","VIL","INC","INC0","INC1","INC2","INC3","WH","Have" 
 write.table(test_store,file="test_store.csv",row.names=F,sep=",")
 
