@@ -1,0 +1,142 @@
+setwd("D:\\ECML")
+library(readr)
+library(xgboost)
+library(pROC)
+
+banks <- read_csv("bank_info.csv")
+train <- read_csv("train_2014.csv")
+train <- transform(train, CHANNEL_Br = ifelse(CHANNEL=='b', 1, 0))
+train <- transform(train, CHANNEL_Pos = ifelse(CHANNEL=='p', 1, 0))
+train <- transform(train, CHANNEL_Net = ifelse(CHANNEL=='n', 1, 0))
+###############
+# Split half years
+###############
+train1<-train[month(train$DATE)<7,]
+train2<-train[month(train$DATE)>6,]
+
+#################################################################
+# Process 2014 training data, generate features
+#################################################################
+for (i in 1:nrow(users)) {
+  user<-users$USER_ID[i]
+  userx<-users$LOC_GEO_X[i]
+  usery<-users$LOC_GEO_Y[i]
+  banks$userx<-as.numeric(userx)
+  banks$usery<-as.numeric(usery)
+  banks$HDIST<-round(((banks$userx-banks$GEO_X)^2+(banks$usery-banks$GEO_Y)^2)^0.5/100,0)
+  banks$HDISTrank<-ave(banks$HDIST, banks$userx, FUN = function(x) rank(x, ties.method = "first"))
+  ##############
+  # get median pos location from H1
+  ##############
+  DF<- subset(train1,c(train1$USER_ID==user & train1$CHANNEL_Pos==1))
+  if (nrow(DF)==0) {
+    banks$PDIST<-9999
+    banks$PDISTrank<-9999
+  } else {
+    DF[nrow(DF)+1,]<-DF[nrow(DF),]
+    banks$posx<-median(DF$GEO_X)
+    banks$posy<-median(DF$GEO_Y)
+    banks$PDIST<-round(((banks$posx-banks$GEO_X)^2+(banks$posy-banks$GEO_Y)^2)^0.5/100,0)
+    banks$PDISTrank<-ave(banks$PDIST, banks$posx, FUN = function(x) rank(x, ties.method = "first"))
+  }
+  ###############
+  # get H2 visits
+  ###############
+  banks$VISH1<-0
+  banks$VISH2<-0
+  banks$VISlast<-0
+  DF<- subset(train2,c(train2$USER_ID==user & train2$CHANNEL_Br==1))
+  if (nrow(DF)>0) { 
+    DF <- aggregate(list(DF$CHANNEL_Br), list(DF$POI_ID),sum)
+    colnames(DF)[2]<-'COUNT'
+    DF<-DF[order(-DF$COUNT),]
+    for (j in 1:nrow(DF)) {
+      banks$VISH2[banks$POI_ID==DF[j,1]]<-DF[j,2]
+    }
+  }
+  # get H1 visits
+  DF<- subset(train1,c(train1$USER_ID==user & train1$CHANNEL_Br==1))
+  # get last visited branch
+  if (nrow(DF)>0) { 
+    banks$VISlast[banks$POI_ID==DF$POI_ID[nrow(DF)]]<-1
+    DF <- aggregate(list(DF$CHANNEL_Br), list(DF$POI_ID),sum)
+    colnames(DF)[2]<-'COUNT'
+    DF<-DF[order(-DF$COUNT),]
+    for (j in 1:nrow(DF)) {
+      banks$VISH1[banks$POI_ID==DF[j,1]]<-DF[j,2]
+    }
+  }
+  banks$USER_ID<-user
+  train_temp<-banks[banks$VISH1>0 | banks$VISH2>0 | banks$HDISTrank<6 | banks$PDISTrank<6,c('USER_ID','POI_ID','VISH2','VISH1','VISlast','PDIST','PDISTrank','HDIST','HDISTrank')]
+  ###############
+  # 1st loop with hand for checking and filling train_store
+  # train_store<-train_temp
+  ###############
+  train_store<-rbind(train_store,train_temp)
+}
+###############
+# Write store file
+###############
+write.table(train_store,file="train_store13620.csv",row.names=F,sep=",")
+
+
+#################################################################
+# Process 2015 data, generate features
+#################################################################
+
+users <- read_csv("users_2015.csv")
+train <- read_csv("train_2015.csv")
+train <- transform(train, CHANNEL_Br = ifelse(CHANNEL=='b', 1, 0))
+train <- transform(train, CHANNEL_Pos = ifelse(CHANNEL=='p', 1, 0))
+train <- transform(train, CHANNEL_Net = ifelse(CHANNEL=='n', 1, 0))
+train1<-train
+
+for (i in 1:nrow(users)) {
+  user<-users$USER_ID[i]
+  userx<-users$LOC_GEO_X[i]
+  usery<-users$LOC_GEO_Y[i]
+  banks$userx<-as.numeric(userx)
+  banks$usery<-as.numeric(usery)
+  banks$HDIST<-round(((banks$userx-banks$GEO_X)^2+(banks$usery-banks$GEO_Y)^2)^0.5/100,0)
+  banks$HDISTrank<-ave(banks$HDIST, banks$userx, FUN = function(x) rank(x, ties.method = "first"))
+  ##############
+  # get median pos location from H1
+  ##############
+  DF<- subset(train1,c(train1$USER_ID==user & train1$CHANNEL_Pos==1))
+  if (nrow(DF)==0) {
+    banks$PDIST<-9999
+    banks$PDISTrank<-9999
+  } else {
+    DF<-rbind(DF,DF[nrow(DF),])
+    banks$posx<-median(as.numeric(DF$GEO_X))
+    banks$posy<-median(as.numeric(DF$GEO_Y))
+    banks$PDIST<-round(((banks$posx-banks$GEO_X)^2+(banks$posy-banks$GEO_Y)^2)^0.5/100,0)
+    banks$PDISTrank<-ave(banks$PDIST, banks$posx, FUN = function(x) rank(x, ties.method = "first"))
+  }
+  ###############
+  # get H2 visits
+  ###############
+  banks$VISH1<-0
+  banks$VISlast<-0
+  # get H1 visits
+  DF<- subset(train1,c(train1$USER_ID==user & train1$CHANNEL_Br==1))
+  # get last visited branch
+  if (nrow(DF)>0) { 
+    banks$VISlast[banks$POI_ID==DF$POI_ID[nrow(DF)]]<-1
+    DF <- aggregate(list(DF$CHANNEL_Br), list(DF$POI_ID),sum)
+    colnames(DF)[2]<-'COUNT'
+    DF<-DF[order(-DF$COUNT),]
+    for (j in 1:nrow(DF)) {
+      banks$VISH1[banks$POI_ID==DF[j,1]]<-DF[j,2]
+    }
+  }
+  banks$USER_ID<-user
+  test_temp<-banks[banks$VISH1>0 | banks$HDISTrank<6 | banks$PDISTrank<6,c('USER_ID','POI_ID','VISH1','VISlast','PDIST','PDISTrank','HDIST','HDISTrank')]
+  ###############
+  # 1st loop with hand for checking and filling train_store
+  # test_store<-test_temp
+  ###############
+  test_store<-rbind(test_store,test_temp)
+}
+write.table(test_store,file="test_store69300.csv",row.names=F,sep=",")
+
