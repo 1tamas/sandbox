@@ -3,7 +3,8 @@ library(readr)
 library(xgboost)
 library(pROC)
 
-banks <- read_csv("bank_info.csv")
+banks <- read_csv('bank_info.csv')
+users<-read_csv('users_2014.csv')
 train <- read_csv("train_2014.csv")
 train <- transform(train, CHANNEL_Br = ifelse(CHANNEL=='b', 1, 0))
 train <- transform(train, CHANNEL_Pos = ifelse(CHANNEL=='p', 1, 0))
@@ -68,16 +69,32 @@ for (i in 1:nrow(users)) {
   }
   banks$USER_ID<-user
   train_temp<-banks[banks$VISH1>0 | banks$VISH2>0 | banks$HDISTrank<6 | banks$PDISTrank<6,c('USER_ID','POI_ID','VISH2','VISH1','VISlast','PDIST','PDISTrank','HDIST','HDISTrank')]
-  ###############
-  # 1st loop with hand for checking and filling train_store
-  # train_store<-train_temp
-  ###############
+  # pass temp dataframe to store in the 1st loop, amend it later on
+  if (i==1) {
+  train_store<-train_temp
+  } else {
   train_store<-rbind(train_store,train_temp)
+  }
 }
 ###############
-# Write store file
+# Generate Target and derived features
 ###############
-write.table(train_store,file="train_store13620.csv",row.names=F,sep=",")
+# Target=visitsduring anytime during the year
+train_store$TARGET<-apply(train_store[,3:4],1,max,na.rm=TRUE)
+# convert Target to binary 
+train_store$TARGET[train_store$TARGET>0]<-1
+# create derived features
+train_store$Hcross<-train_store$HDIST*train_store$HDISTrank
+train_store$Pcross<-train_store$PDIST*train_store$PDISTrank
+###############
+# Add user features
+###############
+
+###############
+# Write store file 
+# USER_ID POI_ID TARGET PDIST PDISTrank HDIST HDISTrank
+###############
+write.table(train_store,file="train_store.csv",row.names=F,sep=",")  #train_xgb
 
 
 #################################################################
@@ -113,30 +130,25 @@ for (i in 1:nrow(users)) {
     banks$PDIST<-round(((banks$posx-banks$GEO_X)^2+(banks$posy-banks$GEO_Y)^2)^0.5/100,0)
     banks$PDISTrank<-ave(banks$PDIST, banks$posx, FUN = function(x) rank(x, ties.method = "first"))
   }
-  ###############
-  # get H2 visits
-  ###############
-  banks$VISH1<-0
-  banks$VISlast<-0
-  # get H1 visits
-  DF<- subset(train1,c(train1$USER_ID==user & train1$CHANNEL_Br==1))
-  # get last visited branch
-  if (nrow(DF)>0) { 
-    banks$VISlast[banks$POI_ID==DF$POI_ID[nrow(DF)]]<-1
-    DF <- aggregate(list(DF$CHANNEL_Br), list(DF$POI_ID),sum)
-    colnames(DF)[2]<-'COUNT'
-    DF<-DF[order(-DF$COUNT),]
-    for (j in 1:nrow(DF)) {
-      banks$VISH1[banks$POI_ID==DF[j,1]]<-DF[j,2]
-    }
-  }
   banks$USER_ID<-user
-  test_temp<-banks[banks$VISH1>0 | banks$HDISTrank<6 | banks$PDISTrank<6,c('USER_ID','POI_ID','VISH1','VISlast','PDIST','PDISTrank','HDIST','HDISTrank')]
-  ###############
-  # 1st loop with hand for checking and filling train_store
-  # test_store<-test_temp
-  ###############
+  test_temp<-banks[banks$HDISTrank<6 | banks$PDISTrank<6,c('USER_ID','POI_ID','PDIST','PDISTrank','HDIST','HDISTrank')]
+  
+  # pass temp dataframe to store in the 1st loop, amend it later on
+  if (i==1) {
+  test_store<-test_temp
+  } else {
   test_store<-rbind(test_store,test_temp)
+  }
+  
 }
-write.table(test_store,file="test_store69300.csv",row.names=F,sep=",")
+###############
+# Generate derived features
+###############
+# create derived features
+test_store$Hcross<-test_store$HDIST*test_store$HDISTrank
+test_store$Pcross<-test_store$PDIST*test_store$PDISTrank
+
+###############
+# Write store file
+write.table(test_store,file="test_store.csv",row.names=F,sep=",")
 
