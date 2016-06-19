@@ -1,0 +1,37 @@
+setwd("D:\\ECMLupsell")
+library(readr)
+library(xgboost)
+library(pROC)
+
+users<-read_csv("users14_JOBB.csv")
+
+feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','Have','Had','AMT','AMTb','NetFreq','PosFreq','PosSD','CARDS','CLOSE') 
+
+train_eval<-users[,feature.names]
+train_target<-setnames(data.frame(users[,c('Apply')]),'target')
+
+h <-sample(nrow(train_target),1000)
+dval   <-xgb.DMatrix(data=data.matrix(train_eval[h,]),label=train_target$target[h])
+dtrain <-xgb.DMatrix(data=data.matrix(train_eval[-h,]),label=train_target$target[-h])
+cat("start training a model \n")
+set.seed(3322)
+xgb_watchlist <-list(val=dval,train=dtrain)
+xgb_params <- list(  objective           = "binary:logistic",    # binary:logistic
+                     booster = "gbtree",
+                     eval_metric = "auc",
+                     eta                 = 0.04,                          # 0.04
+                     max_depth           = 5, #changed from default of 8   5-6???(7303)
+                     subsample           = 0.55,                           # 0.5 tune with col
+                     colsample_bytree    = 0.55                            # 0.5
+)
+xgb_model <- xgb.train(
+  params              = xgb_params, 
+  data                = dtrain, 
+  nrounds             = 200, # 89        nround last to tune
+  verbose             = 1,  #0 if full training set and no watchlist provided
+  watchlist           = xgb_watchlist,
+  print.every.n       = 10,
+  maximize            = FALSE
+)
+modelcv = xgb.cv(params = xgb_params, nrounds = 350, nfold = 3, data = dtrain, early.stop.round = 20, nthread = 12, print.every.n = 50 )
+IMP_all<-as.data.frame(xgb.importance(feature_names = feature.names, model = xgb_model))
