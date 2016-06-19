@@ -3,40 +3,54 @@ library(readr)
 library(xgboost)
 library(pROC)
 users<-read_csv("users14_JOBB.csv")
-#feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','Have','Had','AMT','AMTb','NetFreq','PosFreq','PosSD','CARDS','CLOSE') 
+users1<-read_csv("users14_JOBB1.csv") #'AMT','AMTb','NetFreq','PosFreq','PosSD','CLOSE'
 
+# train on BIG
+
+#feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','Have','Had','AMT','AMTb','NetFreq','PosFreq','PosSD','CARDS','CLOSE') 
 feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','JustHave','LongHave','AMT','AMTb','NetFreq','PosFreq','PosSD','CLOSE') 
 
 train_eval<-users[,feature.names]
 train_target<-setnames(data.frame(users[,c('Apply')]),'target')
+################### train on H1   ################### 
+train_eval<-users1[,feature.names]
+train_target<-setnames(data.frame(users[,c('ApplyH2')]),'target')
+#####################################################
 
-h <-sample(nrow(train_target),1000)
+#h <-sample(nrow(train_target),100000)    ################### 
+
 dval   <-xgb.DMatrix(data=data.matrix(train_eval[h,]),label=train_target$target[h])
 dtrain <-xgb.DMatrix(data=data.matrix(train_eval[-h,]),label=train_target$target[-h])
-cat("start training a model \n")
-set.seed(3322)
-xgb_watchlist <-list(val=dval,train=dtrain)
+set.seed(3620)    ################### 
+xgb_watchlist <-list(val=dval,train=dtrain) 
 xgb_params <- list(  objective           = "binary:logistic",    # binary:logistic
                      booster = "gbtree",
                      eval_metric = "auc",
-                     eta                 = 0.04,                          # 0.04
-                     max_depth           = 5, #changed from default of 8   5-6???(7303)
-                     subsample           = 0.55,                           # 0.5 tune with col
-                     colsample_bytree    = 0.55                            # 0.5
+                     eta                 = 0.05,                          # 0.06 tan
+                     max_depth           = 5,                             # try4
+                     subsample           = 0.6,                           # from 0.55
+                     colsample_bytree    = 0.6                            # 0.5
 )
 xgb_model <- xgb.train(
   params              = xgb_params, 
   data                = dtrain, 
-  nrounds             = 150, # 89        nround last to tune
+  nrounds             = 134,
   verbose             = 1,  #0 if full training set and no watchlist provided
   watchlist           = xgb_watchlist,
   print.every.n       = 10,
   maximize            = FALSE
 )
-modelcv = xgb.cv(params = xgb_params, nrounds = 350, nfold = 3, data = dtrain, early.stop.round = 20, nthread = 12, print.every.n = 50 )
-IMP_all<-as.data.frame(xgb.importance(feature_names = feature.names, model = xgb_model))
+#modelcv = xgb.cv(params = xgb_params, nrounds = 350, nfold = 3, data = dtrain, early.stop.round = 20, print.every.n = 50 )
+#IMP_all<-as.data.frame(xgb.importance(feature_names = feature.names, model = xgb_model))
 
-predictions <- predict(xgb_model, data.matrix(train_eval[h,]))
-auc(train_target$target[h],predictions)
-cor(users$ApplyH2[h],predictions)
+# Predict on 1
+test1<-users1[h,feature.names]
+test1_target<-setnames(data.frame(users[h,c('ApplyH2')]),'target')
+predictions <- predict(xgb_model, data.matrix(test1))
+auc(test1_target$target,predictions)  #
+cor(test1_target$target,pred)         #0.5760506
+
+cor(users$ApplyH2,predictions)
+
+# watch cluster stats
 
