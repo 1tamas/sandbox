@@ -4,6 +4,10 @@ library(xgboost)
 library(pROC)
 users<-read_csv("users14_JOBB.csv")
 users1<-read_csv("users14_JOBB1.csv") #'AMT','AMTb','NetFreq','PosFreq','PosSD','CLOSE'
+# hold out for test
+test1<-users1[users1$USER_ID>200000,]
+users<-users[users$USER_ID<200001,]
+users1<-users1[users1$USER_ID<200001,]
 
 # train on BIG
 
@@ -17,7 +21,7 @@ train_eval<-users1[,feature.names]
 train_target<-setnames(data.frame(users[,c('ApplyH2')]),'target')
 #####################################################
 
-#h <-sample(nrow(train_target),100000)    ################### 
+#h <-sample(nrow(train_target),40000)    ################### 
 
 dval   <-xgb.DMatrix(data=data.matrix(train_eval[h,]),label=train_target$target[h])
 dtrain <-xgb.DMatrix(data=data.matrix(train_eval[-h,]),label=train_target$target[-h])
@@ -44,13 +48,18 @@ xgb_model <- xgb.train(
 #IMP_all<-as.data.frame(xgb.importance(feature_names = feature.names, model = xgb_model))
 
 # Predict on 1
-test1<-users1[h,feature.names]
-test1_target<-setnames(data.frame(users[h,c('ApplyH2')]),'target')
-predictions <- predict(xgb_model, data.matrix(test1))
+test1_features<-test1[h,feature.names]
+test1_target<-setnames(data.frame(test1[,c('ApplyH2')]),'target')
+#test1_features$
+predictions <- predict(xgb_model, data.matrix(test1_features))
 auc(test1_target$target,predictions)  #
 cor(test1_target$target,pred)         #0.5760506
 
 cor(users$ApplyH2,predictions)
 
 # watch cluster stats
+DF$PRED<-predictions
+colnames(DF)[222]<-'PRED'
+mean(DF$PRED)
+
 
