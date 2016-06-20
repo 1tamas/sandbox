@@ -5,20 +5,20 @@ library(pROC)
 users<-read_csv("users14_JOBB.csv")
 users1<-read_csv("users14_JOBB1.csv") #'AMT','AMTb','NetFreq','PosFreq','PosSD','CLOSE'
 # hold out for test
-test1<-users1[users1$USER_ID>200000,]
-users<-users[users$USER_ID<200001,]
-users1<-users1[users1$USER_ID<200001,]
+test1<-users1[users1$USER_ID>250000,]
+users<-users[users$USER_ID<250001,]
+users1<-users1[users1$USER_ID<250001,]
 
 # train on BIG
 
 #feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','Have','Had','AMT','AMTb','NetFreq','PosFreq','PosSD','CARDS','CLOSE') 
-feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','JustHave','LongHave','AMT','AMTb','NetFreq','PosFreq','PosSD','CLOSE') 
+feature.names<-c('GEN','Age1','Age2','Age3','CAP','VIL','INC','WY','JustHave','LongHave','Lost','AMT','AMTb','NetFreq','PosFreq','PosSD') 
 
 train_eval<-users[,feature.names]
 train_target<-setnames(data.frame(users[,c('Apply')]),'target')
 ################### train on H1   ################### 
 train_eval<-users1[,feature.names]
-train_target<-setnames(data.frame(users[,c('ApplyH2')]),'target')
+train_target<-setnames(data.frame(users1[,c('ApplyH2')]),'target')
 #####################################################
 
 #h <-sample(nrow(train_target),40000)    ################### 
@@ -31,14 +31,14 @@ xgb_params <- list(  objective           = "binary:logistic",    # binary:logist
                      booster = "gbtree",
                      eval_metric = "auc",
                      eta                 = 0.05,                          # 0.06 tan
-                     max_depth           = 5,                             # try4
-                     subsample           = 0.6,                           # from 0.55
-                     colsample_bytree    = 0.6                            # 0.5
+                     max_depth           = 4,                             # 
+                     subsample           = 0.65,                           # from 0.55
+                     colsample_bytree    = 0.65                            # 0.5
 )
 xgb_model <- xgb.train(
   params              = xgb_params, 
   data                = dtrain, 
-  nrounds             = 134,
+  nrounds             = 197,
   verbose             = 1,  #0 if full training set and no watchlist provided
   watchlist           = xgb_watchlist,
   print.every.n       = 10,
@@ -48,18 +48,43 @@ xgb_model <- xgb.train(
 #IMP_all<-as.data.frame(xgb.importance(feature_names = feature.names, model = xgb_model))
 
 # Predict on 1
-test1_features<-test1[h,feature.names]
+test1_features<-test1[,feature.names]
 test1_target<-setnames(data.frame(test1[,c('ApplyH2')]),'target')
 #test1_features$
 predictions <- predict(xgb_model, data.matrix(test1_features))
-auc(test1_target$target,predictions)  #
-cor(test1_target$target,pred)         #0.5760506
+auc(test1_target$target,predictions)         # 0.7145 /  0.723
+cor(test1_target$target,predictions)         # 0.08038495 / 0.07028026
 
-cor(users$ApplyH2,predictions)
 
 # watch cluster stats
+DF<-cbind(test1_target,test1_features)
 DF$PRED<-predictions
-colnames(DF)[222]<-'PRED'
-mean(DF$PRED)
+write_csv(DF, "DF.csv")
+
+mean(DF$PRED)       # 0.03140761    # kevesebbmint harnada a csokkeno trend miatt/0.01059445
+mean(DF$PRED[DF$CLOSE==1])  #0.06707474/0.02164049
+mean(DF$PRED[DF$JustHave==1])  #0.005874437   #mean(users$Apply[users$JustHave==1]) sokkal kevesebb 0.005227153
+mean(DF$PRED[DF$LongHave==1])  #0.01950386 / 0.00731335
+sd(DF$PRED[DF$LongHave==1])  #0.01062148
+sum(DF$PRED[DF$JustHave==1]) # 0.5 (from3000)
+sum(DF$PRED[DF$LongHave==1]) # 0.5 ()
+sum(DF$PRED[DF$LongHave==1]) # 0.5 ()
 
 
+# Predict test
+# 0.00963,0.01710456(CLOSE),0.00452(JustHave)->0.001, 0.00338 (Longhave)->0.005
+test<-read_csv("users15_JO.csv")
+test_features<-test[,feature.names]
+predictions <- predict(xgb_model, data.matrix(test_features))
+test$PRED<-predictions
+cor(test$PRED,test$BEST)
+write_csv(test, "DF.csv")
+
+sum(test$PRED)
+sum(test$PRED[test$JustHave==1]) # 0.5 (from3000)11
+sum(test$PRED[test$LongHave==1]) # 91 ()  113
+sum(test$PRED[test$Lost==1])     # 30 ()   30
+# P193  2028-5-81-26
+# P150  2051-8-86-25
+# Goal 2000-0.5-91-30
+# BEST 1842-10-51-24
