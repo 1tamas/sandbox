@@ -35,15 +35,22 @@ for (i in 1847:count) {
 stooq<-read.csv("E:\\STOOQ\\STOOQ.csv",stringsAsFactors=FALSE)
 count<-(nrow(stooq))
 stooq$check<-file.exists(stooq$pathnew)
+stooq$checkstore<-file.exists(stooq$path)
 for (i in 1:count) {
+    # skip if no new file
     if (stooq[i,3]=='FALSE') {
         next
     } 
-    DF<-read.csv(stooq[i,1],stringsAsFactors=FALSE)
-    # skip empty txt files
+    # skip if no new data
     if (file.info(stooq[i,2])$size==0) {
         next
     } 
+    # only read old if exist
+    if (stooq[i,4]=='FALSE') {
+        DF<-read.table(stooq[i,2], sep=",", header=T)
+    } else {
+        DF<-read.csv(stooq[i,1],stringsAsFactors=FALSE)
+    }     
     DF2del<-read.table(stooq[i,2], sep=",", header=T)
     DF<-rbind(DF,DF2del)
     DF<- DF[!duplicated(DF),]
